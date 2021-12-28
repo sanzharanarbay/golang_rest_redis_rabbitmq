@@ -21,6 +21,8 @@ func Router() *mux.Router {
 	router.Path("/api/redis/delete").Queries("iin", "{[0-9]*?}").HandlerFunc(controllers.DeleteRedisUser).Methods("GET")
 
 	//RABBIT MQ API
+	router.HandleFunc("/api/rabbitmq/produce", controllers.SendRabbitMQMessages).Methods("POST")
+	router.HandleFunc("/api/rabbitmq/consume", controllers.GetRabbitMQMessages).Methods("GET")
 
 	return router
 }
