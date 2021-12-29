@@ -1,0 +1,112 @@
+version: "3.7"
+
+services:
+  db:
+    image: postgres:10.1
+    container_name: goapp-db
+    build:
+      context: ./
+      dockerfile: db.Dockerfile
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./sourcefiles/postgres/postgresql.conf:/usr/share/postgresql/postgresql.conf
+    networks:
+      - app-network
+
+  app:
+    container_name:  goapp_test
+    platform: linux/x86_64
+    build:
+      context: ./
+      dockerfile: app.Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    volumes:
+      - .:/app/
+    networks:
+      - app-network
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: goapp-rabbitmq
+    restart: unless-stopped
+    volumes:
+      - ./sourcefiles/rabbitmq/etc/:/etc/rabbitmq/
+      - ./sourcefiles/rabbitmq/data/:/var/lib/rabbitmq/mnesia
+      - ./sourcefiles/rabbitmq/logs/:/var/log/rabbitmq/
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_LOGIN}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    ports:
+      - 5672:5672
+      - 15672:15672
+    networks:
+      - app-network
+
+  redis:
+      image: redis:4.0
+      container_name: goapp_redis
+      restart: unless-stopped
+      ports:
+        - "6382:6379"
+      networks:
+        - app-network
+
+  redis-commander:
+    container_name: goapp-redis-commander
+    image: rediscommander/redis-commander:latest
+    restart: unless-stopped
+    ports:
+     - "8081:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    networks:
+      - app-network
+
+  pgadmin:
+    container_name: goapp_pgadmin4
+    image: dpage/pgadmin4
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@gmail.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    links:
+      - db
+    networks:
+      - app-network
+
+  phppgadmin:
+    container_name: goapp_phppgadmin
+    image: dockage/phppgadmin:latest
+    environment:
+      - PHP_PG_ADMIN_SERVER_HOST=db
+      - PHP_PG_ADMIN_SERVER_PORT=5432
+      - PHP_PG_ADMIN_SERVER_DEFAULT_DB=postgres
+    restart: unless-stopped
+    ports:
+      - "8087:80"
+    links:
+      - db
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  dbdata:
+    driver: local
